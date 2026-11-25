@@ -1,0 +1,340 @@
+--- a/routes/api.php
++++ b/routes/api.php
+@@ -2,11 +2,19 @@
+ 
+ use App\Http\Controllers\Api\V1\AuthController;
+ use App\Http\Controllers\Api\V1\CategoryController;
++use App\Http\Controllers\Api\V1\SiteController;
+ use App\Http\Controllers\Api\V1\UserController;
+ use App\Http\Controllers\Api\V1\ZoneController;
+ use Illuminate\Support\Facades\Route;
+ 
+ Route::prefix('v1')->middleware('throttle:api')->group(function () {
++    Route::get('/public/home', [SiteController::class, 'home'])->name('api.v1.public.home');
++
++    Route::middleware(['auth:sanctum', 'role:administrador'])->group(function () {
++        Route::get('/admin/site', [SiteController::class, 'show'])->name('api.v1.admin.site.show');
++        Route::put('/admin/site', [SiteController::class, 'update'])->name('api.v1.admin.site.update');
++    });
++
+     Route::get('/categories', [CategoryController::class, 'index'])
+         ->name('api.v1.categories.index');
+ 
+--- /dev/null
++++ b/database/migrations/2026_11_25_000018_create_site_settings_table.php
+@@ -0,0 +1,25 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::create('site_settings', function (Blueprint $table) {
++            $table->unsignedTinyInteger('id')->primary();
++            $table->json('hero');
++            $table->json('how_it_works');
++            $table->json('settings');
++            $table->json('featured_content_ids');
++            $table->timestamps();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('site_settings');
++    }
++};
+--- /dev/null
++++ b/app/Models/SiteSetting.php
+@@ -0,0 +1,22 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++
++class SiteSetting extends Model
++{
++    public $incrementing = false;
++
++    protected $fillable = ['hero', 'how_it_works', 'settings', 'featured_content_ids'];
++
++    protected function casts(): array
++    {
++        return [
++            'hero' => 'array',
++            'how_it_works' => 'array',
++            'settings' => 'array',
++            'featured_content_ids' => 'array',
++        ];
++    }
++}
+--- /dev/null
++++ b/app/Http/Requests/Api/V1/UpdateSiteRequest.php
+@@ -0,0 +1,44 @@
++<?php
++
++namespace App\Http\Requests\Api\V1;
++
++use Illuminate\Foundation\Http\FormRequest;
++
++class UpdateSiteRequest extends FormRequest
++{
++    public function authorize(): bool
++    {
++        return $this->user()?->isAdmin() === true;
++    }
++
++    public function rules(): array
++    {
++        return [
++            'hero' => ['required', 'array'],
++            'hero.title' => ['required', 'string', 'max:200'],
++            'hero.subtitle' => ['required', 'string', 'max:500'],
++            'hero.image_url' => ['nullable', 'url:http,https', 'max:2048'],
++            'hero.image_alt' => ['nullable', 'string', 'max:300'],
++            'hero.video_url' => ['nullable', 'url:http,https', 'max:2048'],
++            'hero.primary_cta' => ['required', 'array'],
++            'hero.primary_cta.label' => ['required', 'string', 'max:80'],
++            'hero.primary_cta.href' => ['required', 'string', 'max:500', 'regex:/^\/(?!\/)/'],
++            'hero.secondary_cta' => ['required', 'array'],
++            'hero.secondary_cta.label' => ['required', 'string', 'max:80'],
++            'hero.secondary_cta.href' => ['required', 'string', 'max:500', 'regex:/^\/(?!\/)/'],
++            'how_it_works' => ['present', 'array', 'max:8'],
++            'how_it_works.*.title' => ['required', 'string', 'max:100'],
++            'how_it_works.*.text' => ['required', 'string', 'max:500'],
++            'how_it_works.*.icon' => ['required', 'string', 'max:50'],
++            'settings' => ['required', 'array'],
++            'settings.site_name' => ['required', 'string', 'max:150'],
++            'settings.contact_email' => ['nullable', 'email', 'max:255'],
++            'settings.social' => ['present', 'array', 'max:10'],
++            'settings.social.*.label' => ['required', 'string', 'max:80'],
++            'settings.social.*.url' => ['required', 'url:http,https', 'max:2048'],
++            'settings.footer_text' => ['nullable', 'string', 'max:500'],
++            'featured_content_ids' => ['present', 'array', 'max:12'],
++            'featured_content_ids.*' => ['integer', 'distinct', 'exists:contents,id'],
++        ];
++    }
++}
+--- /dev/null
++++ b/app/Http/Controllers/Api/V1/SiteController.php
+@@ -0,0 +1,137 @@
++<?php
++
++namespace App\Http\Controllers\Api\V1;
++
++use App\Enums\ContentType;
++use App\Enums\EventStatus;
++use App\Enums\ParticipationStatus;
++use App\Enums\RoleName;
++use App\Http\Controllers\Controller;
++use App\Http\Requests\Api\V1\UpdateSiteRequest;
++use App\Http\Resources\ReportPublicResource;
++use App\Models\Activity;
++use App\Models\ActivityParticipation;
++use App\Models\Category;
++use App\Models\Content;
++use App\Models\Event;
++use App\Models\Report;
++use App\Models\SiteSetting;
++use App\Models\User;
++use Illuminate\Http\JsonResponse;
++use Illuminate\Http\Request;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Storage;
++use Illuminate\Validation\ValidationException;
++
++class SiteController extends Controller
++{
++    public function home(Request $request): JsonResponse
++    {
++        $site = SiteSetting::query()->find(1);
++        $featuredIds = $site->featured_content_ids ?? [];
++        $featured = Content::query()->published()->with('category')
++            ->whereIn('id', $featuredIds)->get()->sortBy(fn (Content $content) => array_search($content->id, $featuredIds, true))
++            ->values()->map(fn (Content $content) => $this->contentCard($content));
++
++        $events = Event::query()->published()->where('starts_at', '>=', now())
++            ->with(['category', 'zone'])->withCount([
++                'registrations as active_registrations_count' => fn ($query) => $query->whereIn('status', ['inscrito', 'presente']),
++            ])->orderBy('starts_at')->limit(6)->get();
++
++        $reports = Report::query()->public()->with(['zone', 'category', 'photos'])
++            ->orderByDesc('resolved_at')->limit(6)->get();
++
++        return response()->json([
++            'hero' => $site->hero ?? $this->emptyHero(),
++            'stats' => [
++                'reports_resolved' => Report::query()->public()->count(),
++                'activities_completed' => ActivityParticipation::query()->where('status', ParticipationStatus::VALIDADO)->count(),
++                'events_held' => Event::query()->where('status', EventStatus::CONCLUIDO)->count(),
++                'residents' => User::query()->whereHas('role', fn ($query) => $query->where('name', RoleName::RESIDENTE->value))->where('is_active', true)->count(),
++            ],
++            'categories' => Category::query()->orderBy('name')->get(['id', 'name', 'slug', 'description']),
++            'featured_contents' => $featured,
++            'upcoming_events' => $events->map(fn (Event $event) => [
++                'slug' => $event->slug,
++                'title' => $event->title,
++                'location' => $event->location,
++                'starts_at' => $event->starts_at?->toJSON(),
++                'cover_url' => $this->fileUrl($event->cover_image),
++                'capacity' => $event->capacity,
++                'remaining_places' => $event->capacity === null ? null : max(0, $event->capacity - (int) $event->getAttribute('active_registrations_count')),
++            ]),
++            'open_activities' => Activity::query()->open()->with('category')->orderBy('ends_on')->limit(6)->get()
++                ->map(fn (Activity $activity) => [
++                    'slug' => $activity->slug,
++                    'title' => $activity->title,
++                    'summary' => $activity->summary,
++                    'ends_on' => $activity->ends_on?->toDateString(),
++                    'category' => $activity->category?->only(['id', 'name', 'slug']),
++                ]),
++            'resolved_reports' => ReportPublicResource::collection($reports)->resolve($request),
++            'tips' => Content::query()->published()->where('type', ContentType::DICA)->with('category')
++                ->orderByDesc('published_at')->limit(6)->get()->map(fn (Content $content) => $this->contentCard($content)),
++            'how_it_works' => $site->how_it_works ?? [],
++            'settings' => $site->settings ?? $this->emptySettings(),
++        ]);
++    }
++
++    public function show(): JsonResponse
++    {
++        $site = SiteSetting::query()->find(1);
++
++        return response()->json([
++            'hero' => $site->hero ?? $this->emptyHero(),
++            'how_it_works' => $site->how_it_works ?? [],
++            'settings' => $site->settings ?? $this->emptySettings(),
++            'featured_content_ids' => $site->featured_content_ids ?? [],
++        ]);
++    }
++
++    public function update(UpdateSiteRequest $request): JsonResponse
++    {
++        $data = $request->validated();
++        $published = Content::query()->published()->whereIn('id', $data['featured_content_ids'])->count();
++        if ($published !== count($data['featured_content_ids'])) {
++            throw ValidationException::withMessages(['featured_content_ids' => 'Escolha apenas conteúdos publicados.']);
++        }
++
++        DB::transaction(function () use ($data): void {
++            $site = SiteSetting::query()->lockForUpdate()->find(1) ?? new SiteSetting(['id' => 1]);
++            $site->forceFill(['id' => 1, ...$data])->save();
++        });
++
++        return $this->show();
++    }
++
++    private function contentCard(Content $content): array
++    {
++        return [
++            'slug' => $content->slug,
++            'title' => $content->title,
++            'summary' => $content->summary,
++            'type' => $content->getRawOriginal('type'),
++            'cover_url' => $this->fileUrl($content->cover_image),
++            'category' => $content->category?->only(['id', 'name', 'slug']),
++        ];
++    }
++
++    private function fileUrl(?string $path): ?string
++    {
++        return $path ? Storage::disk(config('uploads.disk', 'public'))->url($path) : null;
++    }
++
++    private function emptyHero(): array
++    {
++        return [
++            'title' => '', 'subtitle' => '', 'image_url' => null, 'image_alt' => null, 'video_url' => null,
++            'primary_cta' => ['label' => '', 'href' => ''],
++            'secondary_cta' => ['label' => '', 'href' => ''],
++        ];
++    }
++
++    private function emptySettings(): array
++    {
++        return ['site_name' => '', 'contact_email' => null, 'social' => [], 'footer_text' => null];
++    }
++}
+--- /dev/null
++++ b/tests/Feature/SiteHomeTest.php
+@@ -0,0 +1,75 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Enums\RoleName;
++use App\Models\Content;
++use App\Models\Role;
++use App\Models\User;
++use Database\Seeders\RoleSeeder;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Tests\TestCase;
++
++class SiteHomeTest extends TestCase
++{
++    use RefreshDatabase;
++
++    protected function setUp(): void
++    {
++        parent::setUp();
++        $this->seed(RoleSeeder::class);
++    }
++
++    public function test_home_is_public_and_returns_empty_editor_blocks_until_configured(): void
++    {
++        $this->getJson('/api/v1/public/home')->assertOk()
++            ->assertJsonPath('hero.title', '')
++            ->assertJsonPath('stats.residents', 0)
++            ->assertJsonPath('settings.site_name', '')
++            ->assertJsonCount(0, 'featured_contents');
++    }
++
++    public function test_only_admin_can_edit_and_published_content_appears_in_home(): void
++    {
++        $content = Content::factory()->published()->create();
++        $draft = Content::factory()->create();
++        $payload = [
++            'hero' => [
++                'title' => 'Bairro dos Navegantes',
++                'subtitle' => 'Cuidar do ambiente juntos',
++                'image_url' => 'https://example.test/hero.webp',
++                'image_alt' => 'Moradores junto ao rio',
++                'video_url' => null,
++                'primary_cta' => ['label' => 'Criar conta', 'href' => '/registar'],
++                'secondary_cta' => ['label' => 'Aprender', 'href' => '/aprender'],
++            ],
++            'how_it_works' => [['title' => 'Aprende', 'text' => 'Lê conteúdos.', 'icon' => 'book']],
++            'settings' => [
++                'site_name' => 'Bairro dos Navegantes',
++                'contact_email' => 'bairro@example.test',
++                'social' => [],
++                'footer_text' => 'Juntos pelo bairro.',
++            ],
++            'featured_content_ids' => [$content->id],
++        ];
++
++        $this->putJson('/api/v1/admin/site', $payload)->assertUnauthorized();
++
++        $resident = User::factory()->create(['role_id' => Role::query()->where('name', RoleName::RESIDENTE)->firstOrFail()->id]);
++        $this->actingAs($resident, 'sanctum')->putJson('/api/v1/admin/site', $payload)->assertForbidden();
++
++        $admin = User::factory()->create(['role_id' => Role::query()->where('name', RoleName::ADMINISTRADOR)->firstOrFail()->id]);
++        $this->actingAs($admin, 'sanctum')->putJson('/api/v1/admin/site', [...$payload, 'featured_content_ids' => [$draft->id]])
++            ->assertUnprocessable()->assertJsonValidationErrors('featured_content_ids');
++
++        $this->actingAs($admin, 'sanctum')->putJson('/api/v1/admin/site', $payload)->assertOk()
++            ->assertJsonPath('hero.title', 'Bairro dos Navegantes');
++
++        $this->getJson('/api/v1/public/home')->assertOk()
++            ->assertJsonPath('hero.title', 'Bairro dos Navegantes')
++            ->assertJsonPath('featured_contents.0.slug', $content->slug)
++            ->assertJsonPath('featured_contents.0.category.slug', $content->category->slug)
++            ->assertJsonPath('stats.residents', 3)
++            ->assertJsonCount(1, 'featured_contents');
++    }
++}
