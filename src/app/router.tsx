@@ -23,6 +23,7 @@ const MyActivitiesPage = lazyRouteComponent(() => import('../features/resident/A
 const MyEventsPage = lazyRouteComponent(() => import('../features/resident/AccountPages'), 'MyEventsPage')
 const ProfilePage = lazyRouteComponent(() => import('../features/resident/AccountPages'), 'ProfilePage')
 const SiteEditor = lazyRouteComponent(() => import('../features/site/SiteEditor'), 'SiteEditor')
+const MediaLibraryPage = lazyRouteComponent(() => import('../features/admin/MediaLibrary'), 'MediaLibraryPage')
 const ModerationDashboard = lazyRouteComponent(() => import('../features/moderation/ModerationPages'), 'ModerationDashboard')
 const ModerateReportsPage = lazyRouteComponent(() => import('../features/moderation/ModerationPages'), 'ModerateReportsPage')
 const ModerateReportDetailPage = lazyRouteComponent(() => import('../features/moderation/ModerationPages'), 'ModerateReportDetailPage')
@@ -89,6 +90,7 @@ const eventRegistrationsRoute = createRoute({ getParentRoute: () => appRoute, pa
 const residentsRoute = createRoute({ getParentRoute: () => appRoute, path: '/moderacao/moradores', beforeLoad: moderatorGuard, validateSearch: (search: Record<string, unknown>) => ({ search: typeof search.search === 'string' ? search.search : '' }), component: () => <ResidentsDirectoryPage initialSearch={residentsRoute.useSearch().search} /> })
 const residentDetailRoute = createRoute({ getParentRoute: () => appRoute, path: '/moderacao/moradores/$id', beforeLoad: moderatorGuard, component: () => <ResidentDetailPage id={residentDetailRoute.useParams().id} /> })
 const adminSiteRoute = createRoute({ getParentRoute: () => appRoute, path: '/admin/site', beforeLoad: adminGuard, component: SiteEditor })
+const adminMediaRoute = createRoute({ getParentRoute: () => appRoute, path: '/admin/media', beforeLoad: adminGuard, component: MediaLibraryPage })
 const usersRoute = createRoute({ getParentRoute: () => appRoute, path: '/admin/utilizadores', beforeLoad: adminGuard, component: UsersPage })
 const zonesRoute = createRoute({ getParentRoute: () => appRoute, path: '/admin/zonas', beforeLoad: adminGuard, component: () => <ReferencesPage kind="zones" /> })
 const categoriesRoute = createRoute({ getParentRoute: () => appRoute, path: '/admin/categorias', beforeLoad: adminGuard, component: () => <ReferencesPage kind="categories" /> })
@@ -96,7 +98,7 @@ const categoriesRoute = createRoute({ getParentRoute: () => appRoute, path: '/ad
 const routeTree = rootRoute.addChildren([
   publicRoute.addChildren([homeRoute, learnRoute, learnDetailRoute, activitiesRoute, activityDetailRoute, eventsRoute, eventDetailRoute, casesRoute, aboutRoute]),
   loginRoute, registerRoute, forbiddenRoute,
-  appRoute.addChildren([dashboardRoute, quizzesRoute, quizPlayRoute, historyRoute, myReportsRoute, newReportRoute, reportDetailRoute, myActivitiesRoute, myEventsRoute, profileRoute, moderationRoute, moderateReportsRoute, moderateReportDetailRoute, proofQueueRoute, moderateQuizzesRoute, moderateContentsRoute, moderateActivitiesRoute, moderateEventsRoute, eventRegistrationsRoute, residentsRoute, residentDetailRoute, adminSiteRoute, usersRoute, zonesRoute, categoriesRoute]),
+  appRoute.addChildren([dashboardRoute, quizzesRoute, quizPlayRoute, historyRoute, myReportsRoute, newReportRoute, reportDetailRoute, myActivitiesRoute, myEventsRoute, profileRoute, moderationRoute, moderateReportsRoute, moderateReportDetailRoute, proofQueueRoute, moderateQuizzesRoute, moderateContentsRoute, moderateActivitiesRoute, moderateEventsRoute, eventRegistrationsRoute, residentsRoute, residentDetailRoute, adminSiteRoute, adminMediaRoute, usersRoute, zonesRoute, categoriesRoute]),
 ])
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })

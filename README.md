@@ -40,4 +40,4 @@ O editor do site fica em `/admin/site`. É preciso iniciar sessão como administ
 
 ## Limitações conhecidas
 
-A edição da capa de eventos e conteúdos ainda não está disponível nos formulários. Biblioteca de media, mapa de reportes, 2FA e pré-renderização das páginas públicas também não estão concluídos. Consulte [decisões](docs/decisions.md) e [lacunas da API](docs/api-gaps.md).
+A edição da capa de eventos e conteúdos ainda não está disponível nos formulários. Mapa de reportes, 2FA e pré-renderização das páginas públicas também não estão concluídos. A biblioteca de media requer a migration `media_assets` na API. Consulte [decisões](docs/decisions.md) e [lacunas da API](docs/api-gaps.md).

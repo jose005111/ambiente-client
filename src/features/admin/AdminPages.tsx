@@ -6,6 +6,7 @@ import { ClearFiltersButton, ActionIcon, ConfirmDialog, ManagementTable, Modal, 
 import { useDebouncedSearch } from '../../components/ui/useDebouncedSearch'
 import { errorMessage, http } from '../../lib/http'
 import { SelectField } from '../../components/ui/select'
+import { ValidatedForm } from '../../components/ui/ValidatedForm'
 
 type Page<T> = { data: T[] }
 type User = { id: number; name: string; email: string; role: string; is_active: boolean }
@@ -53,5 +54,5 @@ function ReferenceForm({ kind, initial, onDone, onCancel }: { kind: 'zones' | 'c
   const [name, setName] = useState(initial?.name || '')
   const [description, setDescription] = useState(initial?.description || '')
   const save = useMutation({ mutationFn: async () => initial ? http.put(`/${kind}/${initial.id}`, { name, description }) : http.post(`/${kind}`, { name, description }), onSuccess: onDone })
-  return <form className="editor-panel reference-form" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}><label className="field">Nome<input required maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label><label className="field">Descrição<textarea value={description} onChange={event => setDescription(event.target.value)} /></label>{save.isError && <p className="form-error" role="alert">{errorMessage(save.error)}</p>}<div className="modal-actions"><button type="button" className="button button-outline" onClick={onCancel}><X size={17} aria-hidden /> Cancelar</button><button className="button" disabled={save.isPending}><Save size={17} aria-hidden /> {save.isPending ? 'A guardar…' : 'Guardar'}</button></div></form>
+  return <ValidatedForm apiError={save.error} className="editor-panel reference-form" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}><label className="field">Nome<input name="name" required maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label><label className="field">Descrição<textarea name="description" value={description} onChange={event => setDescription(event.target.value)} /></label>{save.isError && <p className="form-error" role="alert">{errorMessage(save.error)}</p>}<div className="modal-actions"><button type="button" className="button button-outline" onClick={onCancel}><X size={17} aria-hidden /> Cancelar</button><button className="button" disabled={save.isPending}><Save size={17} aria-hidden /> {save.isPending ? 'A guardar…' : 'Guardar'}</button></div></ValidatedForm>
 }

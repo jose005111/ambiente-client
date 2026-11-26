@@ -14,17 +14,18 @@ type Props = {
   emptyLabel?: string
   required?: boolean
   error?: ReactNode
+  name?: string
   className?: string
 }
 
-export function SelectField({ label, value, onValueChange, options, placeholder = 'Seleccione uma opção', emptyLabel, required = false, error, className = '' }: Props) {
+export function SelectField({ label, value, onValueChange, options, placeholder = 'Seleccione uma opção', emptyLabel, required = false, error, name, className = '' }: Props) {
   const id = useId()
   const [host, setHost] = useState<HTMLDivElement | null>(null)
   const selected = value || (required ? undefined : EMPTY)
-  return <div className={`field select-field ${className}`} ref={setHost}>
+  return <div className={`field select-field ${className}`} ref={setHost} data-field={name} data-required={required} data-empty={!value}>
     <span id={id} className="select-field-label">{label}</span>
-    <SelectPrimitive.Root value={selected} onValueChange={next => onValueChange(next === EMPTY ? '' : next)} required={required}>
-      <SelectPrimitive.Trigger className="shadcn-select-trigger" aria-labelledby={id} aria-invalid={!!error}>
+    <SelectPrimitive.Root value={selected} onValueChange={next => { onValueChange(next === EMPTY ? '' : next); host?.dispatchEvent(new Event('input', { bubbles: true })) }} required={required}>
+      <SelectPrimitive.Trigger className="shadcn-select-trigger" aria-labelledby={id} aria-invalid={!!error} aria-required={required}>
         <SelectPrimitive.Value placeholder={placeholder} />
         <SelectPrimitive.Icon><ChevronDown size={17} aria-hidden /></SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>

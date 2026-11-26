@@ -1,10 +1,11 @@
 import { Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, ExternalLink, FolderKanban, LayoutDashboard, Leaf, LogOut, MapPinned, Menu, Moon, PanelLeftClose, PanelLeftOpen, Shield, Sun, UserRound, Users, X } from 'lucide-react'
+import { BookOpen, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, ExternalLink, FolderKanban, Images, LayoutDashboard, Leaf, LogOut, MapPinned, Menu, Moon, PanelLeftClose, PanelLeftOpen, Shield, Sun, UserRound, Users, X } from 'lucide-react'
 import { useState, type ComponentType } from 'react'
 import { authKeys, logout, meQueryOptions } from '../../features/auth/api'
 import { can } from '../../lib/permissions'
 import { ResidentSearch } from '../../features/residents/ResidentSearch'
+import { ResidentDashboardPage } from '../../features/resident/DashboardPage'
 
 type NavIcon = ComponentType<{ size?: number; 'aria-hidden'?: boolean }>
 type Item = { label: string; to: string; icon: NavIcon }
@@ -28,6 +29,7 @@ const moderation: Item[] = [
 ]
 const administration: Item[] = [
   { label: 'Site', to: '/admin/site', icon: FolderKanban },
+  { label: 'Media', to: '/admin/media', icon: Images },
   { label: 'Utilizadores', to: '/admin/utilizadores', icon: Users },
   { label: 'Zonas', to: '/admin/zonas', icon: MapPinned },
   { label: 'Categorias', to: '/admin/categorias', icon: Leaf },
@@ -72,7 +74,7 @@ export function AppLayout() {
 export function Dashboard() {
   const { data: user } = useQuery(meQueryOptions)
   if (user?.role.name === 'moderador') return <div className="container dashboard"><p className="eyebrow">Área de moderação</p><h1>Bem-vindo, {user.name}</h1><p>Acompanhe os reportes e as provas da comunidade.</p><div className="dashboard-links"><Link to="/moderacao/reportes" className="topic-card"><h2>Reportes</h2><p>Ver e actualizar estados.</p></Link><Link to="/moderacao/provas" className="topic-card"><h2>Provas</h2><p>Rever actividades submetidas.</p></Link></div></div>
-  return <div className="container dashboard"><p className="eyebrow">Área pessoal</p><h1>Bem-vindo, {user?.name}</h1><p>Acompanhe a comunidade e escolha como participar.</p><div className="dashboard-links"><Link to="/aprender" search={{ page: 1, search: "", category: "" }} className="topic-card"><h2>Aprender</h2><p>Descubra os conteúdos disponíveis.</p></Link><Link to="/actividades" search={{ page: 1, search: "", category: "" }} className="topic-card"><h2>Participar</h2><p>Veja as actividades abertas.</p></Link><Link to="/eventos" search={{ page: 1, search: "", category: "" }} className="topic-card"><h2>Eventos</h2><p>Consulte a agenda comunitária.</p></Link></div></div>
+  return <ResidentDashboardPage />
 }
 
 export function ForbiddenPage() { return <div className="container state-panel"><h1>Acesso não permitido</h1><p>A sua conta não tem permissão para abrir esta página.</p><Link to="/app" className="button">Voltar à minha área</Link></div> }
