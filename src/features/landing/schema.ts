@@ -15,7 +15,7 @@ export const homeSchema = siteSchema.extend({
   categories: z.array(categorySchema),
   featured_contents: z.array(contentCardSchema),
   upcoming_events: z.array(z.object({ slug: z.string(), title: z.string(), location: z.string(), starts_at: z.string().nullable(), cover_url: z.string().nullable(), capacity: z.number().nullable(), remaining_places: z.number().nullable() })),
-  open_activities: z.array(z.object({ slug: z.string(), title: z.string(), summary: z.string(), ends_on: z.string().nullable(), category: categorySchema.nullable().optional() })),
+  open_activities: z.array(z.object({ slug: z.string(), title: z.string(), summary: z.string(), ends_on: z.string().nullable(), cover_url: z.string().nullable(), photos: z.array(z.object({ id: z.number(), url: z.string() })), category: categorySchema.nullable().optional() })),
   resolved_reports: z.array(z.object({ id: z.number(), title: z.string(), description: z.string(), zone: z.object({ id: z.number(), name: z.string() }).nullable().optional(), photos: z.array(z.object({ id: z.number(), url: z.string() })).optional() })),
   tips: z.array(contentCardSchema),
 })

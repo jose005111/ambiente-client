@@ -11,3 +11,7 @@ document.documentElement.dataset.theme = localStorage.getItem('ambiente:theme') 
 createRoot(document.getElementById('root')!).render(
   <StrictMode><QueryClientProvider client={queryClient}><MotionConfig reducedMotion="user"><LazyMotion features={domAnimation}><RouterProvider router={router} /></LazyMotion></MotionConfig></QueryClientProvider></StrictMode>,
 )
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'))
+}

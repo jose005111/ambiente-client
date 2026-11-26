@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { clearToken, getToken, http, setToken } from '../../lib/http'
 
 const userSchema = z.object({
-  id: z.number(), name: z.string(), email: z.string(), email_verified_at: z.string().nullable(),
+  id: z.number(), name: z.string(), email: z.string(), phone: z.string().nullable(), email_verified_at: z.string().nullable(),
   role: z.object({ name: z.enum(['residente', 'moderador', 'administrador']), label: z.string() }),
   zone: z.object({ id: z.number(), name: z.string() }).nullable(),
 })

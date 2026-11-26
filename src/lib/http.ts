@@ -25,7 +25,13 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(undefined, (error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>) => {
   const status = error.response?.status ?? 0
-  if (status === 401) clearToken()
+  if (status === 401) {
+    clearToken()
+    if (error.config?.url !== '/auth/logout' && !['/entrar', '/registar'].includes(window.location.pathname)) {
+      const current = window.location.pathname + window.location.search
+      window.location.assign(`/entrar?redirect=${encodeURIComponent(current)}`)
+    }
+  }
   const normalized: ApiError = {
     status,
     message: error.response?.data?.message || (status === 0 ? 'Sem ligação ao servidor. Verifique a sua internet.' : 'Não foi possível concluir o pedido.'),
